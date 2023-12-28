@@ -1,0 +1,27 @@
+<h2>{{word.word}}</h2>
+{% if word_single_view %}
+<h3>{{word.definition}}</h3>
+<h2>Examples</h2>
+<hr />
+{% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'add_usage_example' word.id %}">Add Example</a>
+{% endif %}
+<hr />
+{% for word_usage_example in word.wordusageexample_set.all %}
+<h4>{{word_usage_example.sentence}}</h4>
+{% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'update_usage_example' word.id word_usage_example.id %}"
+	>Update</a
+>
+<a href="{% url 'delete_usage_example' word.id word_usage_example.id %}"
+	>Delete</a
+>
+{% endif %}
+<hr />
+{% endfor %} {% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'update_word' word.id %}">Update</a>
+<a href="{% url 'delete_word' word.id %}">Delete</a>
+{% endif %} {% endif %} {% if not word_single_view %}
+<a href="{% url 'word' word.id %}">View</a>
+{% endif %}
+<hr />

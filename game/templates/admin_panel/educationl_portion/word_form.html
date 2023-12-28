@@ -1,0 +1,28 @@
+{% extends "layout.html" %} {% block content %}
+<h1>{{form_action}} Word</h1>
+<h3>{{error}}</h3>
+<form method="POST">
+	{% csrf_token %} {% if "Word" in form_action %}
+	<input
+		type="text"
+		name="word"
+		placeholder="Desired word here..."
+		value="{{word}}"
+	/>
+	<input
+		type="text"
+		name="definition"
+		placeholder="Desired definition here..."
+		value="{{definition}}"
+	/>
+	{% endif %} {% if form_action != "Update Word" %}
+	<input
+		type="text"
+		name="usage_example"
+		placeholder="Desired usage_example here..."
+		value="{{usage_example}}"
+	/>
+	{% endif %}
+	<button type="submit">{{form_action}}</button>
+</form>
+{% endblock content %}

@@ -4,8 +4,9 @@ from django.shortcuts import redirect, render
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
+from django.urls import reverse
 
-from .models import Feedback
+from .models import Feedback, WordUsageExample, Word
 
 # Create your views here.
 def home(request):
@@ -96,6 +97,9 @@ def admin_panel_feedbacks(request):
 
 def dealt_feedback(request, feedback_id):
 
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
     feedback = Feedback.objects.get(id=feedback_id)
     feedback.dealt_with = True
     feedback.save()
@@ -163,5 +167,166 @@ def demote_user(request, user_id):
     confirmation_action = "Demote"
     item_category = "User"
     item = user.username
+    context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
+    return render(request, "confirmation.html", context)
+
+def admin_panel_words(request):
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    words = Word.objects.prefetch_related("wordusageexample_set").all()
+    context = {"words": words}
+    return render(request, "admin_panel/educationl_portion/words.html", context)
+
+def view_word(request, word_id):
+    word = Word.objects.get(id=word_id)
+    context = {"word": word, "word_single_view": True}
+    return render(request, "admin_panel/educationl_portion/word.html", context)
+
+def add_word(request):
+    error = ""
+    form_action = "Add Word"
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        word = request.POST.get("word")
+        definition = request.POST.get("definition")
+        usage_example = request.POST.get("usage_example")
+
+        if "" in [word, definition, usage_example]:
+            error = "Please fill out all the fields."
+        elif len(word) > 255:
+            error = "Word must not exceed 255 characters."
+        else:
+            try:
+                word = Word.objects.get(word=word)
+                error = "Word is already present in the database."
+            except Word.DoesNotExist:
+                word = Word.objects.create(word=word, definition=definition)
+                usage = WordUsageExample.objects.create(associated_word=word, sentence=usage_example)
+                return redirect("admin_panel_words")
+
+    context = {"error": error, "form_action": form_action}
+    return render(request, "admin_panel/educationl_portion/word_form.html", context)
+
+def update_word(request, word_id):
+    error = ""
+    form_action = "Update Word"
+    selected_word = Word.objects.get(id=word_id)
+
+    word = selected_word.word 
+    definition = selected_word.definition 
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        word = request.POST.get("word")
+        definition = request.POST.get("definition")
+
+        if "" in [word, definition]:
+            error = "Please fill out all the fields."
+        elif len(word) > 255:
+            error = "Word must not exceed 255 characters."
+        else:
+            try:
+                word = Word.objects.get(word=word)
+                error = "Word is already present in the database."
+            except Word.DoesNotExist:
+                selected_word.word = word
+                selected_word.definition = definition
+                selected_word.save()
+                return redirect("admin_panel_words")
+
+    context = {"error": error, "form_action": form_action, "word": word, "definition": definition}
+    return render(request, "admin_panel/educationl_portion/word_form.html", context)
+
+def delete_word(request, word_id):
+    selected_word = Word.objects.get(id=word_id)
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        selected_word.delete()
+        return redirect("admin_panel_words")
+
+    confirmation_action = "Delete"
+    item_category = "Word"
+    item = selected_word.word
+    context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
+    return render(request, "confirmation.html", context)
+
+def add_usage_example(request, word_id):
+    error = ""
+    form_action = "Add Usage Example"
+
+    word = Word.objects.get(id=word_id)
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        usage_example = request.POST.get("usage_example")
+
+        if usage_example == None:
+            error = "Please fill out the field."
+        else:
+            try:
+                usage_example = WordUsageExample.objects.get(sentence=usage_example, associated_word=word)
+                error = "Usage Example is already present for the word."
+            except WordUsageExample.DoesNotExist:
+                usage_example = WordUsageExample.objects.create(sentence=usage_example, associated_word=word)
+                redirect_url = reverse("word", kwargs={"word_id": word_id})
+                return redirect(redirect_url)
+
+    context = {"error": error, "form_action": form_action}
+    return render(request, "admin_panel/educationl_portion/word_form.html", context)    
+
+def update_usage_example(request, word_id, usage_example_id):
+    error = ""
+    form_action = "Update Usage Example"
+    selected_usage_example = WordUsageExample.objects.get(id=usage_example_id)
+
+    usage_example = selected_usage_example.sentence 
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        usage_example = request.POST.get("usage_example")
+
+        if usage_example == None:
+            error = "Please fill out the field."
+        else:
+            try:
+                usage_example = WordUsageExample.objects.get(sentence=usage_example, associated_word=selected_usage_example.associated_word)
+                error = "Usage Example is already present for the word."
+            except WordUsageExample.DoesNotExist:
+                selected_usage_example.sentence = usage_example
+                selected_usage_example.save()
+                redirect_url = reverse("word", kwargs={"word_id": word_id})
+                return redirect(redirect_url)
+
+    context = {"error": error, "form_action": form_action, "usage_example": usage_example}
+    return render(request, "admin_panel/educationl_portion/word_form.html", context)    
+
+def delete_usage_example(request, word_id, usage_example_id):
+    selected_usage_example = WordUsageExample.objects.get(id=usage_example_id)
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        selected_usage_example.delete()
+        redirect_url = reverse("word", kwargs={"word_id": word_id})
+        return redirect(redirect_url)
+
+    confirmation_action = "Delete"
+    item_category = "Usage Example"
+    item = selected_usage_example.sentence
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
