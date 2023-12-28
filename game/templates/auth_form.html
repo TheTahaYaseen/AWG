@@ -3,11 +3,11 @@
 <h3>{{error}}</h3>
 <form method="POST">
 	{% csrf_token %}
-	<input type="text" name="username" placeholder="Desired Username Here..." />
+	<input type="text" name="username" placeholder="Desired username Here..." />
 	<input
 		type="password"
 		name="password"
-		placeholder="Desired Password Here..."
+		placeholder="Desired password Here..."
 	/>
 	<button type="submit">{{form_action}}</button>
 </form>

@@ -1,0 +1,12 @@
+{% extends "layout.html" %} {% block content %} {% include "./admin_nav.html" %}
+<h1>Feedbacks</h1>
+<hr />
+{% for feedback in feedbacks %}
+<h2>{{feedback.subject}}</h2>
+<h3>{{feedback.message}}</h3>
+<h4>{{feedback.given_by.username}}</h4>
+{% if not feedback.dealt_with %}
+<a href="{% url 'dealt_feedback' feedback.id %}">Dealt</a>
+{% endif %}
+<hr />
+{% endfor %} {% endblock content %}

@@ -5,12 +5,14 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 
+from .models import Feedback
+
 # Create your views here.
-def home_view(request):
+def home(request):
     context = {}
     return render(request, "home.html", context)
 
-def register_view(request):
+def register(request):
     error = ""
     form_action = "Register"
 
@@ -40,7 +42,7 @@ def register_view(request):
     context = {"error": error, "form_action": form_action}
     return render(request, "auth_form.html", context)
 
-def login_view(request):
+def login(request):
     error = ""
     form_action = "Login"
 
@@ -61,12 +63,46 @@ def login_view(request):
     context = {"error": error, "form_action": form_action}
     return render(request, "auth_form.html", context)
 
-def logout_view(request):
+def logout(request):
     if request.user.is_authenticated:
         logout(request)
     return redirect("home")
 
-def admin_panel_users_view(request):
+def contact(request):
+    error = ""
+
+    if request.method == "POST":
+        subject = request.POST.get("subject")
+        message = request.POST.get("message")
+
+        if subject == None and message == None:
+            error = "Make sure to fill both fields!"
+        elif len(subject) > 255:
+            error = "Subject can not be longer than 255 characters!"
+        else:
+            feedback = Feedback.objects.create(subject=subject, message=message, given_by=request.user)
+            error = "Your feedback has been sucessfully submitted!"
+
+    context = {"error": error}
+    return render(request, "ui/contact.html", context)
+
+def admin_panel_feedbacks(request):
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+    feedbacks = Feedback.objects.order_by("-dealt_with")
+    context = {"feedbacks": feedbacks}
+    return render(request, "admin_panel/feedbacks.html", context)
+
+def dealt_feedback(request, feedback_id):
+
+    feedback = Feedback.objects.get(id=feedback_id)
+    feedback.dealt_with = True
+    feedback.save()
+
+    return redirect("admin_panel_feedbacks")
+
+def admin_panel_users(request):
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
@@ -77,11 +113,11 @@ def admin_panel_users_view(request):
     context = {"users": users, "staffs": staffs, "admins": admins}
     return render(request, "admin_panel/users.html", context)
 
-def delete_user_view(request, user_id):
+def delete_user(request, user_id):
 
     user = User.objects.get(id=user_id)
 
-    if not request.user.is_superuser and request.user != user:
+    if not request.user.is_superuser and request.user != user and not request.user.is_staff:
         return redirect("home")
 
     if request.method == "POST":
@@ -94,7 +130,7 @@ def delete_user_view(request, user_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def promote_user_view(request, user_id):
+def promote_user(request, user_id):
 
     user = User.objects.get(id=user_id)
 
@@ -112,7 +148,7 @@ def promote_user_view(request, user_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def demote_user_view(request, user_id):
+def demote_user(request, user_id):
 
     user = User.objects.get(id=user_id)
 

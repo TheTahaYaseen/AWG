@@ -1,4 +1,6 @@
-{% extends "layout.html" %} {% block content %}
+{% extends "layout.html" %} {% block content %} {% include "./admin_nav.html" %}
+<h1>Users</h1>
+
 <h1>Admins</h1>
 <hr />
 {% for admin in admins %}

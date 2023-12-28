@@ -1,0 +1,11 @@
+{% extends "layout.html" %} {% block content %}
+<!-- Put in the contact information over here. -->
+<h1>Give Feedback</h1>
+<h3>{{error}}</h3>
+<form method="POST">
+	{% csrf_token %}
+	<input type="text" name="subject" placeholder="Desired subject here..." />
+	<input type="text" name="message" placeholder="Desired message here..." />
+	<button type="submit">Submit</button>
+</form>
+{% endblock content %}
