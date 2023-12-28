@@ -1,0 +1,11 @@
+{% extends "layout.html" %} {% block content %}
+<h1>{{confirmation_action}}</h1>
+<h3>
+	Are you sure you want to {{confirmation_action}} {{item_category}}:
+	{{item}}?
+</h3>
+<form method="POST">
+	{% csrf_token %}
+	<button type="submit">{{confirmation_action}}</button>
+</form>
+{% endblock content %}

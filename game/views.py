@@ -1,6 +1,9 @@
+from django.db import IntegrityError
+from django.forms import ValidationError
 from django.shortcuts import redirect, render
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 
 # Create your views here.
 def home_view(request):
@@ -12,22 +15,27 @@ def register_view(request):
     form_action = "Register"
 
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = request.POST.get("username").lower()
         password = request.POST.get("password")
     
         try: 
             user = User.objects.get(username=username)
             error = "User with username already exists!"
         except User.DoesNotExist:
-            # Checking if fields are empty
-            if "" in [username, password]:
+            if username == None or password == None:
                 error = "Please fillout both fields!"
-            elif len(password) < 8:
-                error = "Please make sure the password is longer than 8 characters!"
             else:
-                user = User.objects.create(username=username, password=password)
-                login(request, user)
-                return redirect("home")
+                try:
+                    validate_password(password)
+                except ValidationError as e:
+                    error = ', '.join(e.messages)
+            if not error:
+                try:
+                    user = User.objects.create_user(username=username, password=password)
+                    login(request, user)
+                    return redirect("home")
+                except IntegrityError:
+                    error = "An error occurred during user creation."
 
     context = {"error": error, "form_action": form_action}
     return render(request, "auth_form.html", context)
@@ -37,26 +45,19 @@ def login_view(request):
     form_action = "Login"
 
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = request.POST.get("username").lower()
         password = request.POST.get("password")
     
-        # Checking if fields are empty
-        if "" in [username, password]:
+        if username == None or password == None:
             error = "Please fillout both fields!"
-
         else:
-            try: 
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                error = "User with username does not exist!"
+            user = authenticate(request, username=username, password=password)
 
-            try:
-                user = User.objects.get(username=username, password=password)
+            if user is not None:
                 login(request, user)
-                return redirect("home")
-            except User.DoesNotExist:
-                error = "Credentials maybe incorrect!"
-
+                return redirect("home") 
+            else:
+                error = "Credentials Maybe Incorrect!"
     context = {"error": error, "form_action": form_action}
     return render(request, "auth_form.html", context)
 
@@ -64,3 +65,67 @@ def logout_view(request):
     if request.user.is_authenticated:
         logout(request)
     return redirect("home")
+
+def admin_panel_users_view(request):
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    admins = User.objects.filter(is_superuser=True)
+    staffs = User.objects.filter(is_staff=True, is_superuser=False)
+    users = User.objects.filter(is_staff=False)
+    context = {"users": users, "staffs": staffs, "admins": admins}
+    return render(request, "admin_panel/users.html", context)
+
+def delete_user_view(request, user_id):
+
+    user = User.objects.get(id=user_id)
+
+    if not request.user.is_superuser and request.user != user:
+        return redirect("home")
+
+    if request.method == "POST":
+        user.delete()
+        return redirect("admin_panel_users")
+
+    confirmation_action = "Delete"
+    item_category = "User"
+    item = user.username
+    context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
+    return render(request, "confirmation.html", context)
+
+def promote_user_view(request, user_id):
+
+    user = User.objects.get(id=user_id)
+
+    if not request.user.is_superuser:
+        return redirect("home")
+
+    if request.method == "POST":
+        user.is_staff = True
+        user.save()
+        return redirect("admin_panel_users")
+
+    confirmation_action = "Promote"
+    item_category = "User"
+    item = user.username
+    context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
+    return render(request, "confirmation.html", context)
+
+def demote_user_view(request, user_id):
+
+    user = User.objects.get(id=user_id)
+
+    if not request.user.is_superuser:
+        return redirect("home")
+
+    if request.method == "POST":
+        user.is_staff = False
+        user.save()
+        return redirect("admin_panel_users")
+
+    confirmation_action = "Demote"
+    item_category = "User"
+    item = user.username
+    context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
+    return render(request, "confirmation.html", context)

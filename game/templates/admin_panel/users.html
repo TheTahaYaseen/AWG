@@ -1,0 +1,25 @@
+{% extends "layout.html" %} {% block content %}
+<h1>Admins</h1>
+<hr />
+{% for admin in admins %}
+<h3>{{admin.username}}</h3>
+<hr />
+{% endfor %}
+
+<h1>Staff</h1>
+<hr />
+{% for staff in staffs %}
+<h3>{{staff.username}}</h3>
+<a href="{% url 'delete_user' staff.id %}">Delete</a>
+<a href="{% url 'demote_user' staff.id %}">Demote</a>
+<hr />
+{% endfor %}
+
+<h1>Users</h1>
+<hr />
+{% for user in users %}
+<h3>{{user.username}}</h3>
+<a href="{% url 'delete_user' user.id %}">Delete</a>
+<a href="{% url 'promote_user' user.id %}">Promote</a>
+<hr />
+{% endfor %} {% endblock content %}
