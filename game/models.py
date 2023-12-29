@@ -17,3 +17,11 @@ class Word(models.Model):
 class WordUsageExample(models.Model):
     associated_word = models.ForeignKey(Word, on_delete=models.CASCADE)
     sentence = models.TextField()
+
+class Trivia(models.Model):
+    name = models.CharField(max_length=255)
+
+class Acheivement(models.Model):
+    name = models.CharField(max_length=255)
+    associated_trivia = models.ForeignKey(Trivia, on_delete=models.CASCADE, null=True)
+    points_required = models.IntegerField(null=True)

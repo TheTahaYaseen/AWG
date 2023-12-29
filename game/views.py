@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.urls import reverse
 
-from .models import Feedback, WordUsageExample, Word
+from .models import Acheivement, Feedback, WordUsageExample, Word
 
 # Create your views here.
 def home(request):
@@ -170,19 +170,19 @@ def demote_user(request, user_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def admin_panel_words(request):
+def words(request):
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
 
     words = Word.objects.prefetch_related("wordusageexample_set").all()
     context = {"words": words}
-    return render(request, "admin_panel/educationl_portion/words.html", context)
+    return render(request, "admin_panel/educational_portion/words/words.html", context)
 
 def view_word(request, word_id):
     word = Word.objects.get(id=word_id)
     context = {"word": word, "word_single_view": True}
-    return render(request, "admin_panel/educationl_portion/word.html", context)
+    return render(request, "admin_panel/educational_portion/words/word.html", context)
 
 def add_word(request):
     error = ""
@@ -207,10 +207,10 @@ def add_word(request):
             except Word.DoesNotExist:
                 word = Word.objects.create(word=word, definition=definition)
                 usage = WordUsageExample.objects.create(associated_word=word, sentence=usage_example)
-                return redirect("admin_panel_words")
+                return redirect("words")
 
     context = {"error": error, "form_action": form_action}
-    return render(request, "admin_panel/educationl_portion/word_form.html", context)
+    return render(request, "admin_panel/educational_portion/words/word_form.html", context)
 
 def update_word(request, word_id):
     error = ""
@@ -239,10 +239,10 @@ def update_word(request, word_id):
                 selected_word.word = word
                 selected_word.definition = definition
                 selected_word.save()
-                return redirect("admin_panel_words")
+                return redirect("words")
 
     context = {"error": error, "form_action": form_action, "word": word, "definition": definition}
-    return render(request, "admin_panel/educationl_portion/word_form.html", context)
+    return render(request, "admin_panel/educational_portion/words/word_form.html", context)
 
 def delete_word(request, word_id):
     selected_word = Word.objects.get(id=word_id)
@@ -252,7 +252,7 @@ def delete_word(request, word_id):
 
     if request.method == "POST":
         selected_word.delete()
-        return redirect("admin_panel_words")
+        return redirect("words")
 
     confirmation_action = "Delete"
     item_category = "Word"
@@ -284,7 +284,7 @@ def add_usage_example(request, word_id):
                 return redirect(redirect_url)
 
     context = {"error": error, "form_action": form_action}
-    return render(request, "admin_panel/educationl_portion/word_form.html", context)    
+    return render(request, "admin_panel/educational_portion/words/word_form.html", context)    
 
 def update_usage_example(request, word_id, usage_example_id):
     error = ""
@@ -312,7 +312,7 @@ def update_usage_example(request, word_id, usage_example_id):
                 return redirect(redirect_url)
 
     context = {"error": error, "form_action": form_action, "usage_example": usage_example}
-    return render(request, "admin_panel/educationl_portion/word_form.html", context)    
+    return render(request, "admin_panel/educational_portion/words/word_form.html", context)    
 
 def delete_usage_example(request, word_id, usage_example_id):
     selected_usage_example = WordUsageExample.objects.get(id=usage_example_id)
@@ -328,5 +328,100 @@ def delete_usage_example(request, word_id, usage_example_id):
     confirmation_action = "Delete"
     item_category = "Usage Example"
     item = selected_usage_example.sentence
+    context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
+    return render(request, "confirmation.html", context)
+
+def acheivements(request):
+
+    pointy_acheivements = Acheivement.objects.filter(associated_trivia=None)
+    trivia_acheivements = Acheivement.objects.filter(points_required=None)
+    context = {"pointy_acheivements": pointy_acheivements, "trivia_acheivements": trivia_acheivements}
+    return render(request, "admin_panel/educational_portion/acheivements/acheivements.html", context)
+
+def add_acheivement(request):
+    error = ""
+    form_action = "Add"
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        name = request.POST.get("name")
+        points = request.POST.get("points")
+
+        if "" in [name, points]:
+            error = "Please fill out all the fields."
+        elif len(name) > 255:
+            error = "Name must not exceed 255 characters."
+        else:
+            try:
+                acheivement = Acheivement.objects.get(points_required=points)
+                error = f"Acheivement for {points} is already present."
+            except Acheivement.DoesNotExist:
+                acheivement = Acheivement.objects.create(name=name, points_required=points, associated_trivia=None)
+                return redirect("acheivements")
+
+    context = {"error": error, "form_action": form_action}
+    return render(request, "admin_panel/educational_portion/acheivements/acheivement_form.html", context)
+
+def update_acheivement(request, acheivement_id):
+    error = ""
+    form_action = "Update"
+
+    acheivement = Acheivement.objects.get(id=acheivement_id)
+
+    if acheivement.associated_trivia:
+        is_trivial_acheivement = True
+    else:
+        is_trivial_acheivement = False
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        name = request.POST.get("name")
+        if not is_trivial_acheivement:
+            points = request.POST.get("points")
+
+        if name == None:
+            error = "Please fill out all the fields."
+        elif not is_trivial_acheivement:
+            if points == None:
+                error = "Please fill out all the fields."
+        
+        if not error:
+            if len(name) > 255:
+                error = "Name must not exceed 255 characters."
+            else:
+                try:
+                    if not is_trivial_acheivement:
+                        acheivement = Acheivement.objects.get(points_required=points)
+                        error = f"Acheivement for {points} points is already present."
+                    else:
+                        acheivement = Acheivement.objects.get(name=name)
+                        error = f"Acheivement with the same name is already present."
+                except Acheivement.DoesNotExist:
+                    acheivement.name = name
+                    if not is_trivial_acheivement:
+                        acheivement.points_required = points
+                    acheivement.save()
+                    return redirect("acheivements")
+
+    context = {"error": error, "form_action": form_action, "is_trivial_acheivement": is_trivial_acheivement}
+    return render(request, "admin_panel/educational_portion/acheivements/acheivement_form.html", context)
+
+def delete_acheivement(request, acheivement_id):
+    acheivement = Acheivement.objects.get(id=acheivement_id)
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        acheivement.delete()
+        return redirect("acheivements")
+
+    confirmation_action = "Delete"
+    item_category = "Acheivement"
+    item = acheivement.name
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)

@@ -1,0 +1,23 @@
+{% extends "layout.html" %}{% block content %} <span></span>
+{% include "../../admin_nav.html" %}
+<h1>{{form_action}} Acheivement</h1>
+<h3>{{error}}</h3>
+<form method="POST">
+	{% csrf_token %}
+	<input
+		type="text"
+		name="name"
+		placeholder="Desired name here..."
+		value="{{name}}"
+	/>
+	{% if not is_trivial_acheivement %}
+	<input
+		type="text"
+		name="points"
+		placeholder="Desired points here..."
+		value="{{points}}"
+	/>
+	{% endif %}
+	<button type="submit">{{form_action}}</button>
+</form>
+{% endblock content %}

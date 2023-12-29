@@ -1,0 +1,8 @@
+{% extends "layout.html" %}{% block content %} <span></span>
+{% include "../../admin_nav.html" %}
+<h1>Acheivements</h1>
+<hr />
+{% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'add_acheivement' %}">Add Acheivement</a>
+<hr />
+{% endif %} {% include "./acheivements_component.html" %} {% endblock content %}

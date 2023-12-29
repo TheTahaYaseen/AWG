@@ -1,0 +1,10 @@
+<h2>{{acheivement.name}}</h2>
+{% if acheivement.points_required %}
+<h3>{{acheivement.points_required}} Points Required</h3>
+{% endif %} {% if acheivement.associated_trivia %}
+<h3>Upon Completing {{acheivement.associated_trivia.nane}} Trivia</h3>
+{% endif %} {% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'update_acheivement' acheivement.id %}">Update</a>
+<a href="{% url 'delete_acheivement' acheivement.id %}">Delete</a>
+{% endif %}
+<hr />

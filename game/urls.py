@@ -13,11 +13,11 @@ urlpatterns = [
     path("admin_panel/feedbacks/dealt/<str:feedback_id>", views.dealt_feedback, name="dealt_feedback"),
 
     path("admin_panel/users", views.admin_panel_users, name="admin_panel_users"),
-    path("admin_panel/users/delete/<str:user_id>", views.delete_user, name="delete_user"),
-    path("admin_panel/users/promote/<str:user_id>", views.promote_user, name="promote_user"),
-    path("admin_panel/users/demote/<str:user_id>", views.demote_user, name="demote_user"),
+    path("admin_panel/users/<str:user_id>/delete", views.delete_user, name="delete_user"),
+    path("admin_panel/users/<str:user_id>/promote", views.promote_user, name="promote_user"),
+    path("admin_panel/users/<str:user_id>/demote", views.demote_user, name="demote_user"),
 
-    path("admin_panel/educational_portion/words", views.admin_panel_words, name="admin_panel_words"),
+    path("admin_panel/educational_portion/words", views.words, name="words"),
     
     path("admin_panel/educational_portion/words/add", views.add_word, name="add_word"),
     path("admin_panel/educational_portion/words/<str:word_id>/update", views.update_word, name="update_word"),
@@ -27,4 +27,10 @@ urlpatterns = [
     path("admin_panel/educational_portion/words/<str:word_id>/usage_examples/add", views.add_usage_example, name="add_usage_example"),
     path("admin_panel/educational_portion/words/<str:word_id>/usage_examples/<str:usage_example_id>/update", views.update_usage_example, name="update_usage_example"),
     path("admin_panel/educational_portion/words/<str:word_id>/usage_examples/<str:usage_example_id>/delete", views.delete_usage_example, name="delete_usage_example"),
+
+    path("admin_panel/educational_portion/acheivements", views.acheivements, name="acheivements"),
+    
+    path("admin_panel/educational_portion/acheivements/add", views.add_acheivement, name="add_acheivement"),
+    path("admin_panel/educational_portion/acheivements/<str:acheivement_id>/update", views.update_acheivement, name="update_acheivement"),
+    path("admin_panel/educational_portion/acheivements/<str:acheivement_id>/delete", views.delete_acheivement, name="delete_acheivement"),
 ]

@@ -1,0 +1,9 @@
+{% extends "layout.html" %}{% block content %} <span></span>
+{% include "../../admin_nav.html" %}
+<h1>Words</h1>
+<hr />
+{% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'add_word' %}">Add Word</a>
+{% endif %}
+<hr />
+{% include "./words_component.html" %} {% endblock content %}
