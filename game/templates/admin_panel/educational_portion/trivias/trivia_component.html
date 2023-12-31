@@ -1,0 +1,26 @@
+<h2>{{trivia.name}}</h2>
+{% if trivia_single_view %}
+<h2>Questions</h2>
+<hr />
+{% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'add_trivia_question' trivia.id %}">Add Question</a>
+{% endif %}
+<hr />
+{% for trivia_question in trivia.triviaquestion_set.all %}
+<h4>{{trivia_question.question}}</h4>
+{% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'update_trivia_question' trivia.id trivia_question.id %}"
+	>Update</a
+>
+<a href="{% url 'delete_trivia_question' trivia.id trivia_question.id %}"
+	>Delete</a
+>
+{% endif %}
+<hr />
+{% endfor %} {% if request.user.is_superuser or request.user.is_staff %}
+<a href="{% url 'update_trivia' trivia.id %}">Update</a>
+<a href="{% url 'delete_trivia' trivia.id %}">Delete</a>
+{% endif %} {% endif %} {% if not trivia_single_view %}
+<a href="{% url 'trivia' trivia.id %}">View</a>
+{% endif %}
+<hr />

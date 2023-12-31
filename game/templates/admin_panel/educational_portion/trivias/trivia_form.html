@@ -1,0 +1,60 @@
+{% extends "layout.html" %}{% block content %} <span></span>
+{% include "../../admin_nav.html" %}
+<h1>{{form_action}}</h1>
+<h3>{{error}}</h3>
+<form method="POST">
+	{% csrf_token %} {% if "Question" not in form_action %}
+	<input
+		type="text"
+		name="name"
+		placeholder="Desired name here..."
+		value="{{name}}"
+	/>
+	{% if "Update" not in form_action %}
+	<input
+		type="text"
+		name="acheivement_name"
+		placeholder="Desired acheivement name here (if wanted)..."
+		value="{{acheivement_name}}"
+	/>
+	{% endif %} {% endif %} {% if form_action != "Update Trivia" %}
+	<input
+		type="text"
+		name="question"
+		placeholder="Desired question here..."
+		value="{{question}}"
+	/>
+	<input
+		type="text"
+		name="answer_a"
+		placeholder="Desired answer a here..."
+		value="{{answer_a}}"
+	/>
+	<input
+		type="text"
+		name="answer_b"
+		placeholder="Desired answer b here..."
+		value="{{answer_b}}"
+	/>
+	<input
+		type="text"
+		name="answer_c"
+		placeholder="Desired answer c here..."
+		value="{{answer_c}}"
+	/>
+	<input
+		type="text"
+		name="correct_answer"
+		placeholder="Desired correct answer here..."
+		value="{{correct_answer}}"
+	/>
+	<input
+		type="number"
+		name="worth_in_points"
+		placeholder="Desired worth in points here..."
+		value="{{worth_in_points}}"
+	/>
+	{% endif %}
+	<button type="submit">{{form_action}}</button>
+</form>
+{% endblock content %}

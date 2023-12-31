@@ -33,4 +33,14 @@ urlpatterns = [
     path("admin_panel/educational_portion/acheivements/add", views.add_acheivement, name="add_acheivement"),
     path("admin_panel/educational_portion/acheivements/<str:acheivement_id>/update", views.update_acheivement, name="update_acheivement"),
     path("admin_panel/educational_portion/acheivements/<str:acheivement_id>/delete", views.delete_acheivement, name="delete_acheivement"),
+
+    path("admin_panel/educational_portion/trivias", views.trivias, name="trivias"),
+    path("admin_panel/educational_portion/trivias/add", views.add_trivia, name="add_trivia"),
+    path("admin_panel/educational_portion/trivias/<str:trivia_id>", views.view_trivia, name="trivia"),
+    path("admin_panel/educational_portion/trivias/<str:trivia_id>/update", views.update_trivia, name="update_trivia"),
+    path("admin_panel/educational_portion/trivias/<str:trivia_id>/delete", views.delete_trivia, name="delete_trivia"),
+    
+    path("admin_panel/educational_portion/trivias/<str:trivia_id>/trivia_questions/add", views.add_trivia_question, name="add_trivia_question"),
+    path("admin_panel/educational_portion/trivias/<str:trivia_id>/trivia_questions/<str:trivia_question_id>/update", views.update_trivia_question, name="update_trivia_question"),
+    path("admin_panel/educational_portion/trivias/<str:trivia_id>/trivia_questions/<str:trivia_question_id>/delete", views.delete_trivia_question, name="delete_trivia_question"),
 ]

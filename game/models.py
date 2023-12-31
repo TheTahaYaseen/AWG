@@ -8,7 +8,6 @@ class Feedback(models.Model):
     given_by = models.ForeignKey(User, on_delete=models.CASCADE)
     dealt_with = models.BooleanField()
     created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
 
 class Word(models.Model):
     word = models.CharField(max_length=255, unique=True)
@@ -21,7 +20,16 @@ class WordUsageExample(models.Model):
 class Trivia(models.Model):
     name = models.CharField(max_length=255)
 
+class TriviaQuestion(models.Model):
+    question = models.CharField(max_length=255)
+    answer_a = models.CharField(max_length=255)
+    answer_b = models.CharField(max_length=255)
+    answer_c = models.CharField(max_length=255)
+    correct_answer = models.CharField(max_length=255)
+    worth_in_points = models.IntegerField()
+    associated_trivia = models.ForeignKey(Trivia, on_delete=models.CASCADE)
+
 class Acheivement(models.Model):
     name = models.CharField(max_length=255)
-    associated_trivia = models.ForeignKey(Trivia, on_delete=models.CASCADE, null=True)
+    associated_trivia = models.ForeignKey(Trivia, on_delete=models.SET_NULL, null=True)
     points_required = models.IntegerField(null=True)

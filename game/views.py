@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.urls import reverse
 
-from .models import Acheivement, Feedback, WordUsageExample, Word
+from .models import Acheivement, Feedback, Trivia, TriviaQuestion, WordUsageExample, Word
 
 # Create your views here.
 def home(request):
@@ -81,7 +81,7 @@ def contact(request):
         elif len(subject) > 255:
             error = "Subject can not be longer than 255 characters!"
         else:
-            feedback = Feedback.objects.create(subject=subject, message=message, given_by=request.user)
+            feedback = Feedback.objects.create(subject=subject, message=message, given_by=request.user, dealt_with=False)
             error = "Your feedback has been sucessfully submitted!"
 
     context = {"error": error}
@@ -91,7 +91,7 @@ def admin_panel_feedbacks(request):
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
-    feedbacks = Feedback.objects.order_by("-dealt_with")
+    feedbacks = Feedback.objects.order_by("dealt_with").order_by("-created")
     context = {"feedbacks": feedbacks}
     return render(request, "admin_panel/feedbacks.html", context)
 
@@ -239,7 +239,8 @@ def update_word(request, word_id):
                 selected_word.word = word
                 selected_word.definition = definition
                 selected_word.save()
-                return redirect("words")
+                redirect_url = reverse("word", kwargs={"word_id": word_id})
+                return redirect(redirect_url)
 
     context = {"error": error, "form_action": form_action, "word": word, "definition": definition}
     return render(request, "admin_panel/educational_portion/words/word_form.html", context)
@@ -423,5 +424,230 @@ def delete_acheivement(request, acheivement_id):
     confirmation_action = "Delete"
     item_category = "Acheivement"
     item = acheivement.name
+    context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
+    return render(request, "confirmation.html", context)
+
+def trivias(request):
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    trivias = Trivia.objects.prefetch_related("triviaquestion_set").all()
+    context = {"trivias": trivias}
+    return render(request, "admin_panel/educational_portion/trivias/trivias.html", context)
+
+def view_trivia(request, trivia_id):
+    trivia = Trivia.objects.get(id=trivia_id)
+    context = {"trivia": trivia, "trivia_single_view": True}
+    return render(request, "admin_panel/educational_portion/trivias/trivia.html", context)
+
+def add_trivia(request):
+    error = ""
+    form_action = "Add Trivia"
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        name = request.POST.get("name")
+        acheivement_name = request.POST.get("acheivement_name")
+        question = request.POST.get("question")
+        answer_a = request.POST.get("answer_a")
+        answer_b = request.POST.get("answer_b")
+        answer_c = request.POST.get("answer_c")
+        correct_answer = request.POST.get("correct_answer")
+        worth_in_points = request.POST.get("worth_in_points")
+
+        fields_with_max_chars = {
+            "name": name,
+            "acheivement_name": acheivement_name,
+            "question": question,
+            "answer_a": answer_a,
+            "answer_b": answer_b,
+            "answer_c": answer_c,
+            "correct_answer": correct_answer
+        }
+
+        if "" in [name, question, answer_a, answer_b, answer_c, correct_answer, worth_in_points]:
+            error = "Please fill out all the fields. (Except acheivement name if you don't want any)"
+        else:
+            for field in fields_with_max_chars:
+                field_value = fields_with_max_chars[field]
+                if len(field_value) > 255:
+                    if field == "acheivement_name" and acheivement_name == None:
+                        pass
+                    else:
+                        error = f"{field} cannot be longer than 255 characters."
+
+        if not error:
+            try:
+                trivia = Trivia.objects.get(name=name)
+                error = "Trivia is already present in the database."
+            except Trivia.DoesNotExist:
+                trivia = Trivia.objects.create(name=name)
+                trivia_question = TriviaQuestion.objects.create(question=question, answer_a=answer_a, answer_b=answer_b, answer_c=answer_c, correct_answer=correct_answer, worth_in_points=worth_in_points, associated_trivia=trivia)
+                acheivement = Acheivement.objects.create(name=acheivement_name, associated_trivia=trivia, points_required=None)
+                return redirect("trivias")
+
+    context = {"error": error, "form_action": form_action}
+    return render(request, "admin_panel/educational_portion/trivias/trivia_form.html", context)
+
+def update_trivia(request, trivia_id):
+    error = ""
+    form_action = "Update Trivia"
+
+    trivia = Trivia.objects.get(id=trivia_id)
+    name = trivia.name
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        name = request.POST.get("name")
+
+        if name == None:
+            error = "Please fill out the name field."
+        elif len(name) > 255:
+            error = "Please make sure the name is shorter than 255 characters."
+        else:
+            trivia.name = name
+            trivia.save()
+            redirect_url = reverse("trivia", kwargs={"trivia_id": trivia_id})
+            return redirect(redirect_url)
+
+    context = {"error": error, "form_action": form_action, "name": name}
+    return render(request, "admin_panel/educational_portion/trivias/trivia_form.html", context)
+
+def delete_trivia(request, trivia_id):
+    trivia = Trivia.objects.get(id=trivia_id)
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        trivia.delete()
+        return redirect("trivias")
+
+    confirmation_action = "Delete"
+    item_category = "Trivia"
+    item = trivia.name
+    context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
+    return render(request, "confirmation.html", context)
+
+def add_trivia_question(request, trivia_id):
+    error = ""
+    form_action = "Add Trivia Question"
+
+    associated_trivia = Trivia.objects.get(id=trivia_id)
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        question = request.POST.get("question")
+        answer_a = request.POST.get("answer_a")
+        answer_b = request.POST.get("answer_b")
+        answer_c = request.POST.get("answer_c")
+        correct_answer = request.POST.get("correct_answer")
+        worth_in_points = request.POST.get("worth_in_points")
+
+        fields_with_max_chars = {
+            "question": question,
+            "answer_a": answer_a,
+            "answer_b": answer_b,
+            "answer_c": answer_c,
+            "correct_answer": correct_answer
+        }
+
+        if "" in [question, answer_a, answer_b, answer_c, correct_answer, worth_in_points]:
+            error = "Please fill out all the fields."
+        else:
+            for field in fields_with_max_chars:
+                field_value = fields_with_max_chars[field]
+                if len(field_value) > 255:
+                    error = f"{field} cannot be longer than 255 characters."
+
+        if not error:
+            try:
+                trivia_question = TriviaQuestion.objects.get(question=question, associated_trivia=associated_trivia)
+                error = "Trivia Question is already present in the database."
+            except TriviaQuestion .DoesNotExist:
+                trivia_question = TriviaQuestion.objects.create(question=question, answer_a=answer_a, answer_b=answer_b, answer_c=answer_c, correct_answer=correct_answer, worth_in_points=worth_in_points, associated_trivia=associated_trivia)
+                redirect_url = reverse("trivia", kwargs={"trivia_id": trivia_id})
+                return redirect(redirect_url)
+
+    context = {"error": error, "form_action": form_action}
+    return render(request, "admin_panel/educational_portion/trivias/trivia_form.html", context)
+
+def update_trivia_question(request, trivia_id, trivia_question_id):
+    error = ""
+    form_action = "Update Trivia Question"
+
+    trivia = Trivia.objects.get(id=trivia_id)
+    trivia_question = TriviaQuestion.objects.get(id=trivia_question_id)
+    
+    question = trivia_question.question
+    answer_a = trivia_question.answer_a
+    answer_b = trivia_question.answer_b
+    answer_c = trivia_question.answer_c
+    correct_answer = trivia_question.correct_answer
+    worth_in_points = trivia_question.worth_in_points
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        question = request.POST.get("question")
+        answer_a = request.POST.get("answer_a")
+        answer_b = request.POST.get("answer_b")
+        answer_c = request.POST.get("answer_c")
+        correct_answer = request.POST.get("correct_answer")
+        worth_in_points = request.POST.get("worth_in_points")
+
+        fields_with_max_chars = {
+            "question": question,
+            "answer_a": answer_a,
+            "answer_b": answer_b,
+            "answer_c": answer_c,
+            "correct_answer": correct_answer
+        }
+
+        if "" in [question, answer_a, answer_b, answer_c, correct_answer, worth_in_points]:
+            error = "Please fill out all the fields."
+        else:
+            for field in fields_with_max_chars:
+                field_value = fields_with_max_chars[field]
+                if len(field_value) > 255:
+                    error = f"{field} cannot be longer than 255 characters."
+        if not error:
+            trivia_question.question = question
+            trivia_question.answer_a = answer_a
+            trivia_question.answer_b = answer_b
+            trivia_question.answer_c = answer_c
+            trivia_question.correct_answer = correct_answer
+            trivia_question.worth_in_points = worth_in_points
+
+            redirect_url = reverse("trivia", kwargs={"trivia_id": trivia_id})
+            return redirect(redirect_url)
+
+    context = {"error": error, "form_action": form_action, "question": question, "answer_a": answer_a, "answer_b": answer_b, "answer_c": answer_c, "correct_answer": correct_answer, "worth_in_points": worth_in_points}
+    return render(request, "admin_panel/educational_portion/trivias/trivia_form.html", context)
+
+def delete_trivia_question(request, trivia_id, trivia_question_id):
+
+    trivia = Trivia.objects.get(id=trivia_id)
+    trivia_question = TriviaQuestion.objects.get(id=trivia_question_id)
+
+    if not request.user.is_superuser and not request.user.is_staff:
+        return redirect("home")
+
+    if request.method == "POST":
+        trivia_question.delete()
+        redirect_url = reverse("trivia", kwargs={"trivia_id": trivia_id})
+        return redirect(redirect_url)
+
+    confirmation_action = "Delete"
+    item_category = "Trivia Question"
+    item = f'"{trivia_question.question}"'
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
