@@ -1,3 +1,4 @@
+import random
 from django.db import IntegrityError
 from django.forms import ValidationError
 from django.shortcuts import redirect, render
@@ -5,15 +6,15 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.urls import reverse
-
-from .models import Acheivement, Feedback, Trivia, TriviaQuestion, WordUsageExample, Word
+from django.db.models import Sum
+from .models import Acheivement, AcheivementsUnlocked, Feedback, PointsRecord, Trivia, TriviaQuestion, WordUsageExample, Word
 
 # Create your views here.
-def home(request):
+def home_view(request):
     context = {}
     return render(request, "home.html", context)
 
-def register(request):
+def register_view(request):
     error = ""
     form_action = "Register"
 
@@ -35,7 +36,7 @@ def register(request):
             if not error:
                 try:
                     user = User.objects.create_user(username=username, password=password)
-                    login(request, user)
+                    login(request, user=user)
                     return redirect("home")
                 except IntegrityError:
                     error = "An error occurred during user creation."
@@ -43,7 +44,7 @@ def register(request):
     context = {"error": error, "form_action": form_action}
     return render(request, "auth_form.html", context)
 
-def login(request):
+def login_view(request):
     error = ""
     form_action = "Login"
 
@@ -57,19 +58,132 @@ def login(request):
             user = authenticate(request, username=username, password=password)
 
             if user is not None:
-                login(request, user)
+                login(request, user=user)
                 return redirect("home") 
             else:
                 error = "Credentials Maybe Incorrect!"
     context = {"error": error, "form_action": form_action}
     return render(request, "auth_form.html", context)
 
-def logout(request):
+def logout_view(request):
     if request.user.is_authenticated:
         logout(request)
     return redirect("home")
 
-def contact(request):
+def select_difficulty_view(request):
+    difficulties = ["Hard", "Medium", "Easy"]
+
+    if request.method == "POST":
+        difficulty = request.POST.get("difficulty")
+        return redirect("/find_a_word?difficulty=" + str(difficulty))
+
+    context = {"difficulties": difficulties}
+    return render(request, "ui/difficulty_form.html", context)
+
+def find_a_word_view(request):
+    word = request.session.get("word", None)
+    word_blank = request.session.get("word_blank", None)
+    attempts = request.session.get("attempts", None)
+    game_context = request.session.get("game_context", None)
+
+    error = ""
+
+    if word is None or word_blank is None or attempts is None or game_context is None:
+        difficulty = request.GET.get("difficulty", "Easy")
+
+        word_obj = Word.objects.order_by("?").first()
+
+        attempts = 7
+        game_context = "You Have {attempts} Attempts!\n"
+
+        if difficulty == "Easy":
+            definition = word_obj.definition
+            usage_example = WordUsageExample.objects.filter(associated_word=word_obj).first().sentence
+            game_context += f"The Word's Definition Is {definition}!\nIts Usage Example Is {usage_example}."
+        elif difficulty == "Medium":
+            usage_example = WordUsageExample.objects.filter(associated_word=word_obj).first().sentence
+            game_context += f"The Word's Usage Example Is {usage_example}."
+
+        word = word_obj.word
+        word_blank = ["_"] * len(word)
+
+        # Update session with new values
+        request.session["word"] = word
+        request.session["word_blank"] = word_blank
+        request.session["attempts"] = attempts
+        request.session["game_context"] = game_context
+        request.session.modified = True
+
+    if request.method == "POST":
+        word_guess = request.POST.get("word_guess")
+
+        attempts -= 1
+
+        if attempts == 0:
+            request.session.pop("word", None)
+            request.session.pop("word_blank", None)
+            request.session.pop("attempts", None)
+            request.session.pop("game_context", None)
+            request.session.modified = True
+            game_context = "Loser! You Lost As You Ran Out Of Attempts!"
+        else:
+            if word_guess == "":
+                error = "You cannot leave the word guess empty!"
+            elif len(word_guess) != len(word):
+                error = "Word guess must be of the same length as the word!"
+            else:
+                for index, letter in enumerate(word_guess):
+                    if letter == word[index]:
+                        word_blank[index] = letter
+                    elif letter in word and letter not in word_blank:
+                        word_blank[index] = f"({letter})"
+
+                if "".join(word_blank) == word:
+                    request.session.pop("word", None)
+                    request.session.pop("word_blank", None)
+                    request.session.pop("attempts", None)
+                    request.session.pop("game_context", None)
+                    request.session.modified = True
+
+                    points_record = PointsRecord.objects.create(
+                        associated_user = request.user,
+                        associated_trivia = None,
+                        points = 5
+                    )
+
+                    return redirect("word_game_win") 
+                else:
+                    request.session["word_blank"] = word_blank
+                    request.session["attempts"] = attempts
+                    request.session["game_context"] = game_context
+                    request.session.modified = True
+
+    game_context = game_context.replace("{attempts}", str(attempts))
+    context = {"word_blank": "".join(word_blank), "game_context": game_context, "error": error}
+    return render(request, "ui/find_a_word.html", context)
+
+def word_game_win_view(request):
+    points = PointsRecord.objects.all().aggregate(total_points=Sum("points"))["total_points"] or 0
+    acheivements_unlocked = AcheivementsUnlocked.objects.filter(associated_user = request.user).values_list("associated_acheivement", flat=True)
+    acheivements_to_be_unlocked = Acheivement.objects.filter(associated_trivia = None, points_required__lte=points).exclude(id__in=acheivements_unlocked)
+    
+    message_heading = f"Congratulations!"
+    message = f"You Won The Game! An Addition Of 5 Points Has Been Made! Now You Have {points} Points"
+
+    if acheivements_to_be_unlocked:
+        message = f"{message} & Have Unlocked:"
+
+    for acheivement_to_be_unlocked in acheivements_to_be_unlocked:
+        acheivement_unlocked = AcheivementsUnlocked.objects.create(
+            associated_user=request.user,
+            associated_acheivement=acheivement_to_be_unlocked,
+        )
+        message = f"{message} The {acheivement_to_be_unlocked.name} Acheivement With {acheivement_to_be_unlocked.points_required} Points;"
+
+    context = {"message_heading": message_heading, "message": message}
+    return render(request, "ui/message.html", context)
+
+def contact_view(request):
     error = ""
 
     if request.method == "POST":
@@ -87,7 +201,7 @@ def contact(request):
     context = {"error": error}
     return render(request, "ui/contact.html", context)
 
-def admin_panel_feedbacks(request):
+def admin_panel_feedbacks_view(request):
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
@@ -95,7 +209,7 @@ def admin_panel_feedbacks(request):
     context = {"feedbacks": feedbacks}
     return render(request, "admin_panel/feedbacks.html", context)
 
-def dealt_feedback(request, feedback_id):
+def dealt_feedback_view(request, feedback_id):
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
@@ -106,7 +220,7 @@ def dealt_feedback(request, feedback_id):
 
     return redirect("admin_panel_feedbacks")
 
-def admin_panel_users(request):
+def admin_panel_users_view(request):
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
@@ -117,7 +231,7 @@ def admin_panel_users(request):
     context = {"users": users, "staffs": staffs, "admins": admins}
     return render(request, "admin_panel/users.html", context)
 
-def delete_user(request, user_id):
+def delete_user_view(request, user_id):
 
     user = User.objects.get(id=user_id)
 
@@ -134,7 +248,7 @@ def delete_user(request, user_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def promote_user(request, user_id):
+def promote_user_view(request, user_id):
 
     user = User.objects.get(id=user_id)
 
@@ -152,7 +266,7 @@ def promote_user(request, user_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def demote_user(request, user_id):
+def demote_user_view(request, user_id):
 
     user = User.objects.get(id=user_id)
 
@@ -170,7 +284,7 @@ def demote_user(request, user_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def words(request):
+def words_view(request):
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
@@ -179,12 +293,12 @@ def words(request):
     context = {"words": words}
     return render(request, "admin_panel/educational_portion/words/words.html", context)
 
-def view_word(request, word_id):
+def view_word_view(request, word_id):
     word = Word.objects.get(id=word_id)
     context = {"word": word, "word_single_view": True}
     return render(request, "admin_panel/educational_portion/words/word.html", context)
 
-def add_word(request):
+def add_word_view(request):
     error = ""
     form_action = "Add Word"
 
@@ -212,7 +326,7 @@ def add_word(request):
     context = {"error": error, "form_action": form_action}
     return render(request, "admin_panel/educational_portion/words/word_form.html", context)
 
-def update_word(request, word_id):
+def update_word_view(request, word_id):
     error = ""
     form_action = "Update Word"
     selected_word = Word.objects.get(id=word_id)
@@ -245,7 +359,7 @@ def update_word(request, word_id):
     context = {"error": error, "form_action": form_action, "word": word, "definition": definition}
     return render(request, "admin_panel/educational_portion/words/word_form.html", context)
 
-def delete_word(request, word_id):
+def delete_word_view(request, word_id):
     selected_word = Word.objects.get(id=word_id)
 
     if not request.user.is_superuser and not request.user.is_staff:
@@ -261,7 +375,7 @@ def delete_word(request, word_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def add_usage_example(request, word_id):
+def add_usage_example_view(request, word_id):
     error = ""
     form_action = "Add Usage Example"
 
@@ -287,7 +401,7 @@ def add_usage_example(request, word_id):
     context = {"error": error, "form_action": form_action}
     return render(request, "admin_panel/educational_portion/words/word_form.html", context)    
 
-def update_usage_example(request, word_id, usage_example_id):
+def update_usage_example_view(request, word_id, usage_example_id):
     error = ""
     form_action = "Update Usage Example"
     selected_usage_example = WordUsageExample.objects.get(id=usage_example_id)
@@ -315,7 +429,7 @@ def update_usage_example(request, word_id, usage_example_id):
     context = {"error": error, "form_action": form_action, "usage_example": usage_example}
     return render(request, "admin_panel/educational_portion/words/word_form.html", context)    
 
-def delete_usage_example(request, word_id, usage_example_id):
+def delete_usage_example_view(request, word_id, usage_example_id):
     selected_usage_example = WordUsageExample.objects.get(id=usage_example_id)
 
     if not request.user.is_superuser and not request.user.is_staff:
@@ -332,14 +446,14 @@ def delete_usage_example(request, word_id, usage_example_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def acheivements(request):
+def acheivements_view(request):
 
     pointy_acheivements = Acheivement.objects.filter(associated_trivia=None)
     trivia_acheivements = Acheivement.objects.filter(points_required=None)
     context = {"pointy_acheivements": pointy_acheivements, "trivia_acheivements": trivia_acheivements}
     return render(request, "admin_panel/educational_portion/acheivements/acheivements.html", context)
 
-def add_acheivement(request):
+def add_acheivement_view(request):
     error = ""
     form_action = "Add"
 
@@ -365,16 +479,20 @@ def add_acheivement(request):
     context = {"error": error, "form_action": form_action}
     return render(request, "admin_panel/educational_portion/acheivements/acheivement_form.html", context)
 
-def update_acheivement(request, acheivement_id):
+def update_acheivement_view(request, acheivement_id):
     error = ""
     form_action = "Update"
 
     acheivement = Acheivement.objects.get(id=acheivement_id)
 
+    name = acheivement.name
+
     if acheivement.associated_trivia:
         is_trivial_acheivement = True
     else:
         is_trivial_acheivement = False
+        points = acheivement.points_required
+
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
@@ -408,10 +526,10 @@ def update_acheivement(request, acheivement_id):
                     acheivement.save()
                     return redirect("acheivements")
 
-    context = {"error": error, "form_action": form_action, "is_trivial_acheivement": is_trivial_acheivement}
+    context = {"error": error, "form_action": form_action, "is_trivial_acheivement": is_trivial_acheivement, "name": name, "points": points}
     return render(request, "admin_panel/educational_portion/acheivements/acheivement_form.html", context)
 
-def delete_acheivement(request, acheivement_id):
+def delete_acheivement_view(request, acheivement_id):
     acheivement = Acheivement.objects.get(id=acheivement_id)
 
     if not request.user.is_superuser and not request.user.is_staff:
@@ -427,7 +545,7 @@ def delete_acheivement(request, acheivement_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def trivias(request):
+def trivias_view(request):
 
     if not request.user.is_superuser and not request.user.is_staff:
         return redirect("home")
@@ -436,12 +554,12 @@ def trivias(request):
     context = {"trivias": trivias}
     return render(request, "admin_panel/educational_portion/trivias/trivias.html", context)
 
-def view_trivia(request, trivia_id):
+def view_trivia_view(request, trivia_id):
     trivia = Trivia.objects.get(id=trivia_id)
     context = {"trivia": trivia, "trivia_single_view": True}
     return render(request, "admin_panel/educational_portion/trivias/trivia.html", context)
 
-def add_trivia(request):
+def add_trivia_view(request):
     error = ""
     form_action = "Add Trivia"
 
@@ -492,7 +610,7 @@ def add_trivia(request):
     context = {"error": error, "form_action": form_action}
     return render(request, "admin_panel/educational_portion/trivias/trivia_form.html", context)
 
-def update_trivia(request, trivia_id):
+def update_trivia_view(request, trivia_id):
     error = ""
     form_action = "Update Trivia"
 
@@ -518,7 +636,7 @@ def update_trivia(request, trivia_id):
     context = {"error": error, "form_action": form_action, "name": name}
     return render(request, "admin_panel/educational_portion/trivias/trivia_form.html", context)
 
-def delete_trivia(request, trivia_id):
+def delete_trivia_view(request, trivia_id):
     trivia = Trivia.objects.get(id=trivia_id)
 
     if not request.user.is_superuser and not request.user.is_staff:
@@ -534,7 +652,7 @@ def delete_trivia(request, trivia_id):
     context = {"confirmation_action": confirmation_action, "item_category": item_category, "item": item}
     return render(request, "confirmation.html", context)
 
-def add_trivia_question(request, trivia_id):
+def add_trivia_question_view(request, trivia_id):
     error = ""
     form_action = "Add Trivia Question"
 
@@ -579,7 +697,7 @@ def add_trivia_question(request, trivia_id):
     context = {"error": error, "form_action": form_action}
     return render(request, "admin_panel/educational_portion/trivias/trivia_form.html", context)
 
-def update_trivia_question(request, trivia_id, trivia_question_id):
+def update_trivia_question_view(request, trivia_id, trivia_question_id):
     error = ""
     form_action = "Update Trivia Question"
 
@@ -633,7 +751,7 @@ def update_trivia_question(request, trivia_id, trivia_question_id):
     context = {"error": error, "form_action": form_action, "question": question, "answer_a": answer_a, "answer_b": answer_b, "answer_c": answer_c, "correct_answer": correct_answer, "worth_in_points": worth_in_points}
     return render(request, "admin_panel/educational_portion/trivias/trivia_form.html", context)
 
-def delete_trivia_question(request, trivia_id, trivia_question_id):
+def delete_trivia_question_view(request, trivia_id, trivia_question_id):
 
     trivia = Trivia.objects.get(id=trivia_id)
     trivia_question = TriviaQuestion.objects.get(id=trivia_question_id)

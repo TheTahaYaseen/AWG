@@ -33,3 +33,12 @@ class Acheivement(models.Model):
     name = models.CharField(max_length=255)
     associated_trivia = models.ForeignKey(Trivia, on_delete=models.SET_NULL, null=True)
     points_required = models.IntegerField(null=True)
+
+class AcheivementsUnlocked(models.Model):
+    associated_user = models.ForeignKey(User, on_delete=models.CASCADE)
+    associated_acheivement = models.ForeignKey(Acheivement, on_delete=models.CASCADE)
+
+class PointsRecord(models.Model):
+    associated_user = models.ForeignKey(User, on_delete=models.CASCADE)
+    associated_trivia = models.ForeignKey(Trivia, on_delete=models.SET_NULL, null=True)    
+    points = models.IntegerField()

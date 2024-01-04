@@ -18,9 +18,9 @@ Educational Portion For Users To See Words With Definitions, Usage Examples Or T
 Admin Panel:
     -- Feedbacks Shown
     -- For Deleting Or Making User Admin
-    Words With Definition And Usage Examples (Atleast At Time Of Creation)
-    Trivia Questions With Answers (Acheivement Associated Can Also Be Made)
-    Acheivements (By Points Or Streak)
+    -- Words With Definition And Usage Examples (Atleast At Time Of Creation)
+    -- Trivia Questions With Answers (Acheivement Associated Can Also Be Made)
+    -- Acheivements (By Points Or Streak)
 
 -- Contact Us & Feedback For User: So That He Can Give Feedback To Us And That To Be Displayed In Admin Panel
 
